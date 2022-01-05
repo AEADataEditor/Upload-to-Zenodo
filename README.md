@@ -24,6 +24,13 @@ import requests
 import json
 import ntpath
 ```
+We suggest to create a Python environment:
+```
+python3 -m venv .env
+source .env/bin/activate
+pip install --upgrade pip
+pip install requests
+```
 
 ## Run the code
 
@@ -43,7 +50,7 @@ The script only uploads the files. All metadata will need to be entered through 
 
 ## NOTES
 
-- Relative paths have not been tested. They may work.
+- Relative paths have <strike>not</strike> been tested. They <strike>may</strike> work.
 - If testing, use the Zenodo Sandbox
     - Uncomment line 23, and comment out line 24
 - If you would like to search and upload the files from sub-directories in the directory as well, then change the value in Line 29 to "TRUE". 
