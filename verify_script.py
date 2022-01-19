@@ -4,6 +4,7 @@ import sys
 import requests
 import json
 import ntpath
+import hashlib
 
 # Change Directory To The Root Directory, please ensure that there is no slash symbol in the end
 #root_dir = "C:/Users/vg224_RS/sample_folder"
@@ -50,38 +51,34 @@ print(" Deposit          : " + DEPOSITION_ID)
 print(" (check at " + BASE_URL + '/' + DEPOSITION_ID + ")")
 print(" Bucket           : " + bucket_url )
 input("Press Enter to continue...")
-# Parsing through each file and uploading it
+# Parsing through each file and verifying it
 for file in glob.glob(search_pattern, recursive = subdir):
     filename = ntpath.basename(file)
+    path = os.path.abspath(file)
     needupload = 1
     for item in r.json()['files']:
         if filename == item['filename']:
-           needupload = 0
-    if needupload == 0:
-           print("Filename " + filename + " present")
-           continue
+            needupload = 0
+            original_md5 = item['checksum']
+            print("Filename " + filename + " present")
 
-    print("Starting upload for file: "+filename)
-    path = os.path.abspath(file)
+            # Compute checksum for each file
+            with open(path, "rb") as fp:
+            # read contents of the file
+                data = fp.read()    
+            # pipe contents of the file through
+                md5_returned = hashlib.md5(data).hexdigest()
+            # Finally compare original MD5 with freshly calculated
+                if original_md5 == md5_returned:
+                    print("Filename " + filename + ": MD5 verified.")
+                else:
+                    print("Filename " + filename + ": MD5 verification failed!.")
+                    print(" Server MD5: " + original_md5)
+                    print(" Local  MD5: " + md5_returned)
+    if needupload == 1:
+        print("Filename  "+filename + " missing on server")
+        continue
 
-    # Uploading each file
-    with open(path, "rb") as fp:
-        rput = requests.put("%s/%s" % (bucket_url, filename),data = fp,params = params)
-
-        # Checking if upload was successful
-        if (rput.status_code!=200):
-            print("Error Uploading File: {0}, Error Code: {1}".format(filename,rput.status_code))
-             
-            # Logging an unsuccessful attempt in root directory
-            with open((root_dir+"/error_log.log"),"a+") as logger_file:
-                logger_file.write(("Error Uploading File: {0}, Error Code: {1}".format(file,rput.status_code))+"\n")
-                logger_file.write(rput.json()['message']+"\n")
-        else:
-            print("Uploading Successful For: "+filename)
-
-# Adding documentation for debugging errors
-with open((root_dir+"/error_log.log"),"a+") as logger_file:
-    logger_file.write("Please check the descriptions of the error codes at: https://developers.zenodo.org/#http-status-codes"+"\n")
 
         
     

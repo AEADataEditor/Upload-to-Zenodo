@@ -15,7 +15,7 @@ Review `run_script.py` to verify that it does what you think it does. In particu
 
 The code can be downloaded to anywhere on your system. The first argument is the path to where the data files are.
 
-You obviously need Python. The script uses imports which you may need to install.
+You obviously need Python. The script uses imports which you may need to install. See [requirements.txt](requirements.txt).
 
 ```python
 import glob, os
@@ -23,6 +23,24 @@ import sys
 import requests
 import json
 import ntpath
+import hashlib
+```
+
+## Setting up Python
+
+We suggest to create a [virtual environment](https://docs.python.org/3/library/venv.html)
+
+```{bash}
+python3 -m venv .env
+source .env/bin/activate
+python3 -m pip install -r requirements.txt
+export APIKEY=your-zenodo-key-here-xxxx
+```
+
+When you are done with the code, exit the environment:
+
+```{bash}
+deactivate
 ```
 We suggest to create a Python environment:
 ```
@@ -34,7 +52,7 @@ pip install requests
 
 ## Run the code
 
-```python
+```{bash}
 python run_script.py (DIRECTORY) "(GLOBPAT)" APIKEY [DEPOSITID]
 ```
 where parameters are as follows:
@@ -43,6 +61,29 @@ where parameters are as follows:
 - `(GLOBPAT)`: glob pattern for files to upload (e.g., `"*.7z"`). Should include the quotes.
 - `APIKEY`: API key generated as per https://developers.zenodo.org/#authentication
 - (optional) `DEPOSITID`: If a deposit has already been initiated manually on Zenodo, then specify it on the command line. Otherwise, a new deposit will be generated.
+
+## Verifying files
+
+Once uploaded, you will want to verify the integrity of the uploaded files. Using the same environment as before,
+
+
+```{bash}
+python verify_script.py (DIRECTORY) "(GLOBPAT)" APIKEY DEPOSITID
+```
+where parameters are as follows:
+
+- `(DIRECTORY)`: directory containing the files to upload
+- `(GLOBPAT)`: glob pattern for files to upload (e.g., `"*.7z"`). Should include the quotes.
+- `APIKEY`: API key generated as per https://developers.zenodo.org/#authentication
+- (required) `DEPOSITID`: Deposit from upload request.
+
+This will compute the MD5 sum locally, and compare to files on the server. Output is to standard out. You may want to run this with `tee` and then search the output file for failed uploads:
+
+
+```{bash}
+python verify_script.py (DIRECTORY) "(GLOBPAT)" APIKEY DEPOSITID | tee verify.log
+grep "failed" verify.log
+```
 
 ## Finalizing
 
