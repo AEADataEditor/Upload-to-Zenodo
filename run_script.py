@@ -43,6 +43,7 @@ headers = {"Content-Type": "application/json"}
 # If creating a new deposit, then the post will create that new deposit
 #r = requests.post(BASE_URL,params = params, headers = headers, json = {})
 # However, if we already have a deposit, we want to get the information
+print("Getting information on deposit...")
 r = requests.get(BASE_URL + '/' + DEPOSITION_ID,params = params, headers = headers, json = {})
 bucket_url = r.json()['links']['bucket']
 print("Uploading to start: ")
