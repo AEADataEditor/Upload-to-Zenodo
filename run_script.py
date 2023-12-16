@@ -4,85 +4,151 @@ import sys
 import requests
 import json
 import ntpath
-
-# Change Directory To The Root Directory, please ensure that there is no slash symbol in the end
-#root_dir = "C:/Users/vg224_RS/sample_folder"
-root_dir = sys.argv[1]
-
-# Extension To Be Searched
-#ext = "*.py"
-ext = sys.argv[2]
-
-# Change Access Token
-#ACCESS_TOKEN = "CHANGE_ME"
-ACCESS_TOKEN = sys.argv[3]
-DEPOSITION_ID = sys.argv[4]
-
-#====================== hard-coded parameters - CHANGE IF NECESSARY ======================================
-# Base URL: could be the sandbox!
-# BASE_URL = "https://sandbox.zenodo.org/api/deposit/depositions"
-BASE_URL = "https://zenodo.org/api/deposit/depositions"
-
-# Would you like to search the subdirectories in the directory as well? 
-# "True" for Yes, "False" for No. 
-# "True" by default.
-subdir = False
+from dotenv import load_dotenv  
+import argparse
+import hashlib
 
 #============================= NO FURTHER CHANGES NEEDED BEYOND HERE =======================================
 
-# setting search_pattern to be full path
-os.chdir(root_dir)
-search_path = root_dir + "/"
-search_pattern = search_path + ext
+# Get home directory 
+home_dir = os.path.expanduser("~") 
 
-print("Search pattern:" + search_pattern)
 
-# Configuring Script For Zenodo Upload
-params = {'access_token': ACCESS_TOKEN}
-headers = {"Content-Type": "application/json"}
-# If creating a new deposit, then the post will create that new deposit
-#r = requests.post(BASE_URL,params = params, headers = headers, json = {})
-# However, if we already have a deposit, we want to get the information
-r = requests.get(BASE_URL + '/' + DEPOSITION_ID,params = params, headers = headers, json = {})
-bucket_url = r.json()['links']['bucket']
-print("Uploading to start: ")
-print(" Deposit          : " + DEPOSITION_ID)
-print(" (check at " + BASE_URL + '/' + DEPOSITION_ID + ")")
-print(" Bucket           : " + bucket_url )
-input("Press Enter to continue...")
-# Parsing through each file and uploading it
-for file in glob.glob(search_pattern, recursive = subdir):
-    filename = ntpath.basename(file)
-    needupload = 1
-    for item in r.json()['files']:
-        if filename == item['filename']:
-           needupload = 0
-    if needupload == 0:
-           print("Filename " + filename + " present")
-           continue
-
-    print("Starting upload for file: "+filename)
-    path = os.path.abspath(file)
-
-    # Uploading each file
-    with open(path, "rb") as fp:
-        rput = requests.put("%s/%s" % (bucket_url, filename),data = fp,params = params)
-
-        # Checking if upload was successful
-        if (rput.status_code!=200):
-            print("Error Uploading File: {0}, Error Code: {1}".format(filename,rput.status_code))
-             
-            # Logging an unsuccessful attempt in root directory
-            with open((root_dir+"/error_log.log"),"a+") as logger_file:
-                logger_file.write(("Error Uploading File: {0}, Error Code: {1}".format(file,rput.status_code))+"\n")
-                logger_file.write(rput.json()['message']+"\n")
-        else:
-            print("Uploading Successful For: "+filename)
-
-# Adding documentation for debugging errors
-with open((root_dir+"/error_log.log"),"a+") as logger_file:
-    logger_file.write("Please check the descriptions of the error codes at: https://developers.zenodo.org/#http-status-codes"+"\n")
-
-        
+def upload_file(file, bucket_url, params,headers):
+    """Uploads a file to Zenodo.
+    Args:
+        filename (str): The name of the file to upload.
+        bucket_url (str): The URL of the bucket to upload to.
+        params (dict): The parameters to use for the upload.
+        headers (dict): The headers to use for the upload.
+    Returns:
+        str: The URL of the uploaded file.
+    """
+    filename = os.path.basename(file)
     
+    with open(file, "rb") as fp:
+            url = bucket_url + "/" + filename + "?access_token=" + params['access_token']
+            rput = requests.put(url,data = fp)
+            
+            # Checking if upload was successful
+            if (rput.status_code!=201):
+                print("Error Uploading File: {0}, Error Code: {1}".format(filename,rput.status_code))
+                
+            else:
+                print("Uploading Successful For: "+filename)
+
+
+def create_filelist(directory, extension, subdir):
+    """Creates a list of files to upload.
+    Args:
+        directory (str): The directory to search for files.
+        extension (str): The file extension to search for.
+        subdir (bool): Whether or not to search subdirectories.
+    Returns:
+        list: A list of files to upload.
+    """
+    search_path = os.path.join(directory, extension)
+    if subdir:
+        return glob.glob(search_path, recursive=True)
+    else:
+        return glob.glob(search_path)
+
     
+def main():
+    parser = argparse.ArgumentParser(description='Upload to Zenodo. Please create a deposit manually.')
+    parser.add_argument('-d','--directory', required=True, help='Directory to use for upload')
+    parser.add_argument('-f','--files', required=True,  help='File extension to upload')
+    parser.add_argument('-e','--envvars', required=False,  help='Environment file containing Zenodo credentials')
+    parser.add_argument('-p','--pat', required=False,  help='Zenodo Personal Access Token')
+    parser.add_argument('-i','--id', required=True,  help='Zenodo Deposition ID')
+    parser.add_argument('--production', required=False, action='store_true', help='Do NOT use Zenodo sandbox')
+    parser.add_argument('--subdir', required=False, action='store_true', help='Search subdirectories')
+    args = parser.parse_args()
+    
+    # Load environment variables  
+
+    # Construct full .env file path
+    env_file = os.path.join(home_dir, ".envvars")
+    if args.envvars:
+        env_file = args.envvars
+    load_dotenv(env_file)
+    ACCESS_TOKEN= os.getenv('ZENODO_PAT')
+    # if pat still empty, try to get it from command line
+    if not ACCESS_TOKEN:
+        ACCESS_TOKEN = args.pat
+    extension = args.files
+    directory = args.directory
+    DEPOSITION_ID = args.id
+    if args.production:
+        BASE_URL = "https://zenodo.org/api/deposit/depositions"
+    else:
+        BASE_URL = "https://sandbox.zenodo.org/api/deposit/depositions"
+    subdir = args.subdir
+
+    # setting search_pattern to be full path
+    # construct the full search path
+
+    search_pattern = os.path.join(directory, extension)
+
+    print("Search pattern:" + search_pattern)
+
+    params = {'access_token': ACCESS_TOKEN}
+    headers = {"Content-Type": "application/json"}
+
+    r = requests.get(BASE_URL + '/' + DEPOSITION_ID,
+                     params = params, 
+                     headers = headers, 
+                     json = {})
+    if r.status_code != 200:
+        print("Error getting deposition: {0}, Error Code: {1}".format(DEPOSITION_ID,r.status_code))
+    else:
+        print("Deposit found: " + DEPOSITION_ID)
+
+    bucket_url = r.json()["links"]["bucket"]
+
+    #bucket_url = BASE_URL + '/' + DEPOSITION_ID + '/files'
+    print("Uploading to start: ")
+    print(" Deposit          : " + DEPOSITION_ID)
+    print(" (check at " + BASE_URL + '/' + DEPOSITION_ID + ")")
+    print(" Bucket           : " + bucket_url )
+    input("Press Enter to continue...")
+
+    # Parsing through each file and uploading it
+    for file in create_filelist(directory, extension, subdir):
+        filename = os.path.basename(file)
+        needupload = 1
+        for item in r.json()['files']:
+            if filename == item['filename']:
+                needupload = 0
+                original_md5 = item['checksum']
+                print("Filename " + filename + " present")
+
+                # Compute checksum for each file
+                with open(file, "rb") as fp:
+                    # read contents of the file
+                    data = fp.read()
+                    # pipe contents of the file through
+                    # hashlib to get a hash value
+                    md5_returned = hashlib.md5(data).hexdigest()
+
+                # Compare checksums
+                if md5_returned == original_md5:
+                    print("Checksums match for " + filename)
+                else:
+                    print("Checksums do not match for " + filename)
+                    print("Original checksum: " + original_md5)
+                    print("Returned checksum: " + md5_returned)
+                    print("Uploading file again")
+                    needupload = 1
+
+        if needupload == 0:
+            print("Filename " + filename + " present")
+            continue
+
+        print("Starting upload for file: "+filename)
+        # Uploading each file
+        upload_file(file, bucket_url, params,headers)
+
+
+if __name__ == "__main__":
+    main()
