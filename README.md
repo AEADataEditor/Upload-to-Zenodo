@@ -5,13 +5,14 @@ Python Directory Parsing and Uploading Code
 - File `run_script.py` does the following:
     1. Finds all files with a certain extension in a directory.
     2. Uploads them to `Zenodo` using their API.
-    3. Generates a log file `error_log.txt` in the root directory to note any errors encountered from the Zenodo server.
 
-- The code is platform agnostic, tested on Windows, and used in production on Linux. 
+- The code is platform agnostic, used in production on Linux. Previous versions worked on Windows, but this version has not been tested.
+
+> This version is compatible with the Zenodo API released in October 2023.
 
 ## Prepare
 
-Review `run_script.py` to verify that it does what you think it does. In particular, verify the hard-coded parameters in lines 24 and 29 (see NOTES).
+Review `run_script.py` to verify that it does what you think it does. 
 
 The code can be downloaded to anywhere on your system. The first argument is the path to where the data files are.
 
@@ -19,12 +20,16 @@ You obviously need Python. The script uses imports which you may need to install
 
 ```python
 import glob, os
-import sys
 import requests
-import json
-import ntpath
+from dotenv import load_dotenv  
+import argparse
 import hashlib
 ```
+
+You need a Zenodo API key. See https://developers.zenodo.org/#authentication. You can either export it as an environment variable, or put it in a file called `.env` in the home directory (you can also specify a different file on the command line).
+
+You need to create an empty Zenodo deposit. This will give you (in the URL) the Deposit ID, e.g. `https://zenodo.org/uploads/11303` has Deposit ID `11303`.
+
 
 ## Setting up Python
 
@@ -34,20 +39,13 @@ We suggest to create a [virtual environment](https://docs.python.org/3/library/v
 python3 -m venv .env
 source .env/bin/activate
 python3 -m pip install -r requirements.txt
-export APIKEY=your-zenodo-key-here-xxxx
+export ZENODO_PAT=your-zenodo-key-here-xxxx
 ```
 
 When you are done with the code, exit the environment:
 
 ```{bash}
 deactivate
-```
-We suggest to create a Python environment:
-```
-python3 -m venv .env
-source .env/bin/activate
-pip install --upgrade pip
-pip install requests
 ```
 
 ## Run the code
@@ -68,35 +66,30 @@ Once uploaded, you will want to verify the integrity of the uploaded files. Usin
 
 
 ```{bash}
-python verify_script.py (DIRECTORY) "(GLOBPAT)" APIKEY DEPOSITID
+python run_script.py [-h] -d DIRECTORY -f FILES [-e ENVVARS] [-p PAT] -i ID
+                     [--production] [--subdir]
 ```
-where parameters are as follows:
 
-- `(DIRECTORY)`: directory containing the files to upload
-- `(GLOBPAT)`: glob pattern for files to upload (e.g., `"*.7z"`). Should include the quotes.
-- `APIKEY`: API key generated as per https://developers.zenodo.org/#authentication
-- (required) `DEPOSITID`: Deposit from upload request.
+(or `python3` depending on your system)
 
-This will compute the MD5 sum locally, and compare to files on the server. Output is to standard out. You may want to run this with `tee` and then search the output file for failed uploads:
+where arguments are as follows:
 
+- (required) `(DIRECTORY)`: directory containing the files to upload
+- (required) `(FILES)`: glob pattern for files to upload (e.g., `"*.7z"`). Should include the quotes.
+- (required) `ID`: Deposit from upload request.
+- `PAT`: API key generated as per https://developers.zenodo.org/#authentication. Required if not provided via the environment variables, or the `.env` file.
+- `ENVVARS`: Path to environment variables file. Default is `~/.env`.
+- `--production`: Use the production Zenodo server. Default is to use the sandbox.
+- `--subdir`: Search subdirectories for files to upload. Default is to only search the specified directory.
 
-```{bash}
-python verify_script.py (DIRECTORY) "(GLOBPAT)" APIKEY DEPOSITID | tee verify.log
-grep "failed" verify.log
-```
+This will compute the MD5 sum locally, and compare to files on the server. Output is to standard out. Files already uploaded and with the same MD5 sum are skipped.
+
+You may want to run this with `tee` and then search the output file for failed uploads:
+
 
 ## Finalizing
 
 The script only uploads the files. All metadata will need to be entered through the Zenodo web interface. The URL is printed to the console. Publishing the deposit is intentionally manual.
-
-## NOTES
-
-- Relative paths have <strike>not</strike> been tested. They <strike>may</strike> work.
-- If testing, use the Zenodo Sandbox
-    - Uncomment line 23, and comment out line 24
-- If you would like to search and upload the files from sub-directories in the directory as well, then change the value in Line 29 to "TRUE". 
-    - Otherwise, it is "FALSE" by default and the program uploads all files with a certain extension in the directory, but none of its sub-directories.
-- Specifying a `DEPOSITID` when the deposit doesn't actually exist will probably lead the code to fail; not tested.
 
 
 ## License

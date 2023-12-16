@@ -1,14 +1,9 @@
 # Import Packages
 import glob, os
-import sys
 import requests
-import json
-import ntpath
 from dotenv import load_dotenv  
 import argparse
 import hashlib
-
-#============================= NO FURTHER CHANGES NEEDED BEYOND HERE =======================================
 
 # Get home directory 
 home_dir = os.path.expanduser("~") 
@@ -58,9 +53,9 @@ def main():
     parser = argparse.ArgumentParser(description='Upload to Zenodo. Please create a deposit manually.')
     parser.add_argument('-d','--directory', required=True, help='Directory to use for upload')
     parser.add_argument('-f','--files', required=True,  help='File extension to upload')
+    parser.add_argument('-i','--id', required=True,  help='Zenodo Deposition ID')
     parser.add_argument('-e','--envvars', required=False,  help='Environment file containing Zenodo credentials')
     parser.add_argument('-p','--pat', required=False,  help='Zenodo Personal Access Token')
-    parser.add_argument('-i','--id', required=True,  help='Zenodo Deposition ID')
     parser.add_argument('--production', required=False, action='store_true', help='Do NOT use Zenodo sandbox')
     parser.add_argument('--subdir', required=False, action='store_true', help='Search subdirectories')
     args = parser.parse_args()
