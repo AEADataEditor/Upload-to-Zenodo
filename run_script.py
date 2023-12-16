@@ -63,14 +63,30 @@ def main():
     # Load environment variables  
 
     # Construct full .env file path
-    env_file = os.path.join(home_dir, ".envvars")
     if args.envvars:
         env_file = args.envvars
-    load_dotenv(env_file)
-    ACCESS_TOKEN= os.getenv('ZENODO_PAT')
-    # if pat still empty, try to get it from command line
-    if not ACCESS_TOKEN:
+    else:
+        # if the envvars file exists, read it
+        if os.path.isfile(os.path.join(home_dir, ".envvars")):
+            env_file = os.path.join(home_dir, ".envvars")
+        else:
+            if os.path.isfile(os.path.join(home_dir, ".env")):
+                env_file = os.path.join(home_dir, ".env")
+    
+    # if the envvars file exists, read it
+    if env_file:
+        print("Reading environment variables from " + env_file)
+        load_dotenv(env_file)
+
+    if args.pat:
         ACCESS_TOKEN = args.pat
+    else:
+        ACCESS_TOKEN= os.getenv('ZENODO_PAT')
+    # if pat still empty, exit with error message
+    if ACCESS_TOKEN == "":
+        print("Error: Could not find ZENODO_PAT in files or command line")
+        exit(1)
+    
     extension = args.files
     directory = args.directory
     DEPOSITION_ID = args.id
