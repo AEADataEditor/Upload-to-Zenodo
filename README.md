@@ -1,3 +1,5 @@
+WARNING: This probably no longer works, since it was using the pre-2024 Zenodo API!!
+
 # Zenodo Uploading Code
 
 Python Directory Parsing and Uploading Code 
